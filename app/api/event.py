@@ -17,17 +17,17 @@ async def event(request: Request, banking_agency_service: BankingAgencyService =
     type = data['type'] if 'type' in data else None
     origin = data['origin'] if 'origin' in data else None
     destination = data['destination'] if 'destination' in data else None
-    amount = decimal.Decimal(data['amount']) if 'amount' in data else None
+    amount = decimal.Decimal(data['amount']) if 'amount' in data else decimal.Decimal('0')
 
     if type == Event.DEPOSIT:
-        banking_agency_service.validate_deposit_event(origin, destination)
+        banking_agency_service.validate_deposit_event(destination, amount)
         account_balance = await banking_agency_service.deposit_account(destination, amount)
         response_content = f'{{"destination": {{"id": "{destination}", "balance":{str(account_balance)}}}}}'
         return Response(
             content=response_content,
             status_code=status.HTTP_201_CREATED)
     elif type == Event.WITHDRAW:
-        banking_agency_service.validate_withdraw_event(origin, destination)
+        banking_agency_service.validate_withdraw_event(origin, amount)
         if not await banking_agency_service.check_account_exists(origin):
             return Response(
                 content="0",

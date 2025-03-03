@@ -7,19 +7,25 @@ class BankingAgencyService:
         self.banking_agency_repository = banking_agency_repository
 
     def validate_deposit_event(self, destination: str, amount: decimal.Decimal) -> None:
-        pass
-        # if not destination or not amount:
-        #     raise ValueError("Destination and Amount are required.")
+        if decimal.Decimal(amount) < decimal.Decimal('1'):
+            raise ValueError("Amount is required.")
+
+        if not destination:
+            raise ValueError("Destination is required.")
 
     def validate_withdraw_event(self, origin: str, amount: decimal.Decimal) -> None:
-        pass
-        # if not origin or not amount:
-        #     raise ValueError("Origin and Amount are required.")
+        if decimal.Decimal(amount) < decimal.Decimal('1'):
+            raise ValueError("Amount is required.")
+
+        if not origin:
+            raise ValueError("Origin is required.")
 
     def validate_transfer_event(self, origin: str, amount: decimal.Decimal, destination: str) -> None:
-        pass
-        # if not origin or not amount or not destination:
-        #     raise ValueError("Origin, Destination and Amount are required.")
+        if decimal.Decimal(amount) < decimal.Decimal('1'):
+            raise ValueError("Amount is required.")
+
+        if not origin or not destination:
+            raise ValueError("Origin and Destination are required.")
 
     async def reset_accounts(self) -> None:
         await self.banking_agency_repository.reset_accounts()
