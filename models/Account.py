@@ -1,13 +1,15 @@
 class Account:
     def __init__(self, code, balance):
-        self.id = code
+        self.code = code
         self.balance = balance
 
     def withdraw(self, amount):
         self.balance -= amount
+        return self.get_balance()
 
     def deposit(self, amount):
         self.balance += amount
+        return self.get_balance()
 
-    def balance(self):
+    def get_balance(self):
         return self.balance

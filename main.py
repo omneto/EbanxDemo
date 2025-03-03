@@ -1,15 +1,22 @@
+import decimal
+
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from fastapi import Request
 from contextlib import asynccontextmanager
 from pathlib import Path
 from os import getenv
 import logging, ngrok, json
+from starlette import status
+from enum import StrEnum
 
-from models.Bank import Bank
+from models.BankingAgency import BankingAgency
 
-BASE_DIR = Path(__file__).resolve().parent
-
-print(BASE_DIR)
+class Event(StrEnum):
+    DEPOSIT = 'deposit'
+    WITHDRAW = 'withdraw'
+    TRANSFER = 'transfer'
 
 with open("secrets.json") as f:
     SECRETS = json.load(f)
@@ -37,16 +44,70 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-bank = Bank("EbanxDemo")
+bank = BankingAgency("EbanxDemo")
 
 @app.get("/")
 async def root():
     return {"message": "Hello Ebanx!"}
 
+@app.get("/balance")
+async def balance(account_id: str):
+    if not bank.check_account_exists(account_id):
+        return JSONResponse(
+            content={status.HTTP_400_BAD_REQUEST: "0"},
+            status_code=status.HTTP_400_BAD_REQUEST)
+    account_balance = bank.get_account_balance(account_id)
+    return JSONResponse(
+            content={"result": str(account_balance)},
+            status_code=status.HTTP_200_OK)
 
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+@app.post("/event")
+async def event(request: Request):
+    data = await request.json()
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host=APPLICATION_HOST, port=APPLICATION_PORT, reload=True)
+    type = data['type'] if 'type' in data else None
+    origin =  data['origin']  if 'origin' in data else None
+    destination = data['destination'] if 'destination' in data else None
+    amount = decimal.Decimal(data['amount']) if 'amount' in data else decimal.Decimal('0')
+
+    if type == Event.DEPOSIT:
+        account_balance = bank.deposit_account(destination, amount)
+        return JSONResponse(
+                content={"destination": {"id": destination, "balance": str(account_balance)}},
+                status_code=status.HTTP_200_OK)
+    elif type == Event.WITHDRAW:
+        if not bank.check_account_exists(origin):
+            return JSONResponse(
+                content={status.HTTP_404_NOT_FOUND: "0"},
+                status_code=status.HTTP_404_NOT_FOUND)
+        account_balance = bank.withdraw_account(origin, amount)
+        return JSONResponse(
+                content={"origin": {"id": origin, "balance": str(account_balance)}},
+                status_code=status.HTTP_200_OK)
+    elif type == Event.TRANSFER:
+        if not bank.check_account_exists(origin):
+            return JSONResponse(
+                content={status.HTTP_404_NOT_FOUND: "0"},
+                status_code=status.HTTP_404_NOT_FOUND)
+        dest_account_balance = bank.transfer_account(origin, amount, destination)
+        origin_account_balance = bank.get_account_balance(origin)
+        return JSONResponse(
+                content={"origin": {"id": origin, "balance": str(origin_account_balance)},
+                         "destination": {"id": destination, "balance": str(dest_account_balance)}},
+                status_code=status.HTTP_200_OK)
+
+    return JSONResponse(
+        content={status.HTTP_400_BAD_REQUEST: "0"},
+        status_code=status.HTTP_400_BAD_REQUEST)
+
+@app.post("/reset")
+async def reset():
+    bank.reset_accounts()
+    return JSONResponse(
+            content={status.HTTP_200_OK: "OK"},
+            status_code=status.HTTP_200_OK)
+
+
+
+#if __name__ == "__main__":
+#    uvicorn.run("main:app", host=APPLICATION_HOST, port=APPLICATION_PORT, reload=True)
